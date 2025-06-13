@@ -1,0 +1,468 @@
+---
+title: 'LilWorldsAPI'
+description: 'Main API entry point for LilWorlds world management'
+icon: 'code'
+---
+
+# LilWorldsAPI Class
+
+The `LilWorldsAPI` class is the main entry point for all LilWorlds API operations. It provides access to all world management functionality through a singleton pattern.
+
+## Getting the API Instance
+
+```java
+import org.hydr4.lilworlds.api.LilWorldsAPI;
+
+// Get the singleton instance
+LilWorldsAPI api = LilWorldsAPI.getInstance();
+```
+
+<Warning>
+Always check that LilWorlds is enabled before getting the API instance:
+
+```java
+if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+    // Handle missing dependency
+    return;
+}
+LilWorldsAPI api = LilWorldsAPI.getInstance();
+```
+</Warning>
+
+## Core Methods
+
+### World Creation
+
+#### `createWorld(String name)`
+
+Creates a new `WorldBuilder` instance for fluent world creation.
+
+```java
+// Basic usage
+WorldBuilder builder = api.createWorld("myworld");
+
+// Fluent chain
+api.createWorld("myworld")
+    .environment(World.Environment.NORMAL)
+    .generator("superflat")
+    .structures(true)
+    .build();
+```
+
+**Parameters:**
+- `name` (String) - The name of the world to create
+
+**Returns:** `WorldBuilder` - A builder instance for configuring the world
+
+**Example:**
+```java
+api.createWorld("survival_world")
+    .environment(World.Environment.NORMAL)
+    .generator("default")
+    .structures(true)
+    .onSuccess(world -> {
+        System.out.println("World created: " + world.getName());
+        // Set world spawn
+        world.setSpawnLocation(0, 100, 0);
+    })
+    .onFailure(error -> {
+        System.err.println("Failed to create world: " + error);
+    })
+    .buildAsync();
+```
+
+### Component Access
+
+#### `getWorldManager()`
+
+Returns the `WorldManager` instance for advanced world operations.
+
+```java
+WorldManager manager = api.getWorldManager();
+
+// Load a world
+manager.loadWorldAsync("myworld").thenAccept(success -> {
+    System.out.println("World loaded: " + success);
+});
+```
+
+**Returns:** `WorldManager` - The world manager instance
+
+#### `getWorldUtils()`
+
+Returns the `WorldUtils` instance for utility operations.
+
+```java
+WorldUtils utils = api.getWorldUtils();
+
+// Calculate world size
+utils.calculateWorldSizeAsync("myworld").thenAccept(sizeBytes -> {
+    String formatted = utils.formatSize(sizeBytes);
+    System.out.println("World size: " + formatted);
+});
+```
+
+**Returns:** `WorldUtils` - The world utilities instance
+
+### World Information
+
+#### `getWorldInfo(String worldName)`
+
+Gets comprehensive information about a world.
+
+```java
+WorldInfo info = api.getWorldInfo("myworld");
+if (info != null) {
+    System.out.println("Environment: " + info.getEnvironment());
+    System.out.println("Loaded: " + info.isLoaded());
+    System.out.println("Players: " + info.getPlayerCount());
+}
+```
+
+**Parameters:**
+- `worldName` (String) - The name of the world
+
+**Returns:** `WorldInfo` - World information object, or `null` if world doesn't exist
+
+#### `getWorldInfo(World world)`
+
+Gets information about a Bukkit World object.
+
+```java
+World bukkitWorld = Bukkit.getWorld("myworld");
+WorldInfo info = api.getWorldInfo(bukkitWorld);
+```
+
+**Parameters:**
+- `world` (World) - The Bukkit World object
+
+**Returns:** `WorldInfo` - World information object
+
+### Version Information
+
+#### `getVersion()`
+
+Returns the API version string.
+
+```java
+String version = api.getVersion();
+System.out.println("LilWorlds API version: " + version);
+```
+
+**Returns:** `String` - The API version (e.g., "1.4.0")
+
+#### `isCompatible(String requiredVersion)`
+
+Checks if the current API version is compatible with a required version.
+
+```java
+if (api.isCompatible("1.4.0")) {
+    // Safe to use 1.4.0 features
+} else {
+    // Handle version incompatibility
+}
+```
+
+**Parameters:**
+- `requiredVersion` (String) - The minimum required version
+
+**Returns:** `boolean` - True if compatible, false otherwise
+
+## Complete Usage Example
+
+Here's a comprehensive example showing various API operations:
+
+```java
+public class WorldAPIExample extends JavaPlugin {
+    
+    private LilWorldsAPI api;
+    
+    @Override
+    public void onEnable() {
+        // Initialize API
+        if (!initializeAPI()) {
+            return;
+        }
+        
+        // Demonstrate API features
+        demonstrateWorldCreation();
+        demonstrateWorldManagement();
+        demonstrateWorldInformation();
+    }
+    
+    private boolean initializeAPI() {
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found! Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return false;
+        }
+        
+        this.api = LilWorldsAPI.getInstance();
+        
+        // Check version compatibility
+        if (!api.isCompatible("1.4.0")) {
+            getLogger().severe("LilWorlds API version " + api.getVersion() + 
+                             " is not compatible! Requires 1.4.0+");
+            getServer().getPluginManager().disablePlugin(this);
+            return false;
+        }
+        
+        getLogger().info("Connected to LilWorlds API v" + api.getVersion());
+        return true;
+    }
+    
+    private void demonstrateWorldCreation() {
+        // Create a survival world
+        api.createWorld("survival_example")
+            .environment(World.Environment.NORMAL)
+            .generator("default")
+            .structures(true)
+            .onSuccess(world -> {
+                getLogger().info("Survival world created!");
+                
+                // Configure the world
+                world.setGameRuleValue("keepInventory", "false");
+                world.setGameRuleValue("mobGriefing", "true");
+                world.setDifficulty(Difficulty.NORMAL);
+                
+                // Set spawn location
+                world.setSpawnLocation(0, 100, 0);
+            })
+            .onFailure(error -> {
+                getLogger().warning("Failed to create survival world: " + error);
+            })
+            .buildAsync();
+        
+        // Create a creative world
+        api.createWorld("creative_example")
+            .environment(World.Environment.NORMAL)
+            .generator("superflat")
+            .structures(false)
+            .onSuccess(world -> {
+                getLogger().info("Creative world created!");
+                
+                // Configure for creative
+                world.setGameRuleValue("keepInventory", "true");
+                world.setGameRuleValue("mobGriefing", "false");
+                world.setGameRuleValue("doDaylightCycle", "false");
+                world.setTime(6000); // Noon
+            })
+            .buildAsync();
+    }
+    
+    private void demonstrateWorldManagement() {
+        WorldManager manager = api.getWorldManager();
+        
+        // Load a world
+        manager.loadWorldAsync("example_world").thenAccept(success -> {
+            if (success) {
+                getLogger().info("World loaded successfully!");
+            }
+        });
+        
+        // Clone a world
+        manager.cloneWorldAsync("survival_example", "survival_backup")
+            .thenAccept(success -> {
+                if (success) {
+                    getLogger().info("World cloned successfully!");
+                    
+                    // Unload the backup to save memory
+                    manager.unloadWorldAsync("survival_backup");
+                }
+            });
+        
+        // Get all managed worlds
+        List<String> worlds = manager.getManagedWorlds();
+        getLogger().info("Managed worlds: " + String.join(", ", worlds));
+    }
+    
+    private void demonstrateWorldInformation() {
+        // Get information about all worlds
+        api.getWorldManager().getAllWorlds().forEach(worldName -> {
+            WorldInfo info = api.getWorldInfo(worldName);
+            
+            if (info != null) {
+                getLogger().info(String.format(
+                    "World: %s | Environment: %s | Loaded: %s | Players: %d",
+                    info.getName(),
+                    info.getEnvironment(),
+                    info.isLoaded(),
+                    info.getPlayerCount()
+                ));
+            }
+        });
+        
+        // Calculate world sizes
+        WorldUtils utils = api.getWorldUtils();
+        utils.calculateWorldSizeAsync("survival_example").thenAccept(sizeBytes -> {
+            String formattedSize = utils.formatSize(sizeBytes);
+            getLogger().info("Survival world size: " + formattedSize);
+        });
+    }
+}
+```
+
+## Error Handling
+
+The API provides several ways to handle errors:
+
+### Synchronous Operations
+
+```java
+try {
+    WorldInfo info = api.getWorldInfo("nonexistent");
+    if (info == null) {
+        // World doesn't exist
+        System.out.println("World not found!");
+    }
+} catch (Exception e) {
+    // Handle unexpected errors
+    e.printStackTrace();
+}
+```
+
+### Asynchronous Operations
+
+```java
+api.createWorld("test")
+    .onSuccess(world -> {
+        // Success callback
+    })
+    .onFailure(error -> {
+        // Error callback - always implement this
+        System.err.println("Error: " + error);
+    })
+    .buildAsync();
+```
+
+### CompletableFuture Error Handling
+
+```java
+api.getWorldManager().loadWorldAsync("world")
+    .thenAccept(success -> {
+        if (success) {
+            System.out.println("World loaded!");
+        } else {
+            System.out.println("Failed to load world!");
+        }
+    })
+    .exceptionally(throwable -> {
+        System.err.println("Unexpected error: " + throwable.getMessage());
+        return null;
+    });
+```
+
+## Thread Safety
+
+The LilWorldsAPI is designed to be thread-safe:
+
+- **Main Thread Operations**: Bukkit-specific operations are automatically scheduled on the main thread
+- **Async Operations**: I/O operations run on background threads
+- **Callbacks**: Success/failure callbacks run on the main thread
+- **Concurrent Access**: Safe to call from multiple threads
+
+```java
+// Safe to call from any thread
+CompletableFuture.runAsync(() -> {
+    // This runs on a background thread
+    api.getWorldManager().loadWorldAsync("world").thenAccept(success -> {
+        // This callback runs on the main thread
+        if (success) {
+            Bukkit.broadcastMessage("World loaded!");
+        }
+    });
+});
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Check API Availability" icon="shield">
+    ```java
+    @Override
+    public void onEnable() {
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found!");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        
+        this.api = LilWorldsAPI.getInstance();
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Async Operations" icon="arrows-rotate">
+    ```java
+    // Preferred - Non-blocking
+    api.getWorldManager().loadWorldAsync("world").thenAccept(success -> {
+        // Handle result
+    });
+    
+    // Avoid - Blocks main thread
+    // boolean success = api.getWorldManager().loadWorld("world");
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle All Errors" icon="exclamation-triangle">
+    ```java
+    api.createWorld("world")
+        .onSuccess(world -> {
+            // Success handling
+        })
+        .onFailure(error -> {
+            // Always implement error handling
+            getLogger().warning("Failed: " + error);
+        })
+        .buildAsync();
+    ```
+  </Accordion>
+  
+  <Accordion title="Check Version Compatibility" icon="code-branch">
+    ```java
+    if (!api.isCompatible("1.4.0")) {
+        getLogger().warning("API version " + api.getVersion() + 
+                          " may not support all features!");
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Classes
+
+<CardGroup cols={2}>
+  <Card
+    title="WorldBuilder"
+    icon="hammer"
+    href="/lilworlds/api/classes/world-builder"
+  >
+    Fluent builder for world creation
+  </Card>
+  <Card
+    title="WorldManager"
+    icon="gear"
+    href="/lilworlds/api/classes/world-manager"
+  >
+    Advanced world management operations
+  </Card>
+  <Card
+    title="WorldInfo"
+    icon="info"
+    href="/lilworlds/api/classes/world-info"
+  >
+    Comprehensive world information
+  </Card>
+  <Card
+    title="WorldUtils"
+    icon="wrench"
+    href="/lilworlds/api/classes/world-utils"
+  >
+    Utility functions for world operations
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Need more examples?** Check out the [Quick Examples](/lilworlds/api/quick-examples) page or explore the [practical examples](/lilworlds/api/examples/basic-usage) section for real-world use cases.
+</Note>

@@ -1,0 +1,582 @@
+---
+title: 'Quick Examples'
+description: 'Common use cases and practical examples for the LilWorlds API'
+icon: 'lightbulb'
+---
+
+# Quick Examples
+
+Here are practical examples showing common use cases for the LilWorlds API.
+
+## Basic World Operations
+
+### Creating Worlds
+
+<CodeGroup>
+
+```java Simple World Creation
+// Create a basic world
+api.createWorld("myworld")
+    .onSuccess(world -> {
+        System.out.println("World created: " + world.getName());
+    })
+    .build();
+```
+
+```java Advanced World Creation
+// Create a world with custom settings
+api.createWorld("custom_world")
+    .environment(World.Environment.NETHER)
+    .generator("superflat")
+    .structures(false)
+    .onSuccess(world -> {
+        // Set custom world rules
+        world.setGameRuleValue("keepInventory", "true");
+        world.setGameRuleValue("doDaylightCycle", "false");
+        System.out.println("Custom world created!");
+    })
+    .onFailure(error -> {
+        System.err.println("Failed to create world: " + error);
+    })
+    .buildAsync();
+```
+
+```java Async World Creation with Callback
+// Create world asynchronously with detailed callbacks
+api.createWorld("async_world")
+    .environment(World.Environment.NORMAL)
+    .generator("default")
+    .structures(true)
+    .onSuccess(world -> {
+        // This runs on the main thread
+        Bukkit.broadcastMessage("§aNew world '" + world.getName() + "' is now available!");
+        
+        // Set spawn location
+        Location spawn = world.getSpawnLocation();
+        spawn.setY(100); // Set spawn higher
+        world.setSpawnLocation(spawn.getBlockX(), spawn.getBlockY(), spawn.getBlockZ());
+    })
+    .onFailure(error -> {
+        Bukkit.broadcastMessage("§cFailed to create world: " + error);
+    })
+    .buildAsync();
+```
+
+</CodeGroup>
+
+### Loading and Unloading Worlds
+
+<CodeGroup>
+
+```java Load World
+// Load a world asynchronously
+api.getWorldManager().loadWorldAsync("myworld").thenAccept(success -> {
+    if (success) {
+        System.out.println("World loaded successfully!");
+    } else {
+        System.out.println("Failed to load world!");
+    }
+});
+```
+
+```java Unload World with Player Evacuation
+// Safely unload a world by moving players first
+String worldName = "old_world";
+World world = Bukkit.getWorld(worldName);
+
+if (world != null && !world.getPlayers().isEmpty()) {
+    // Evacuate players first
+    api.getWorldUtils().evacuatePlayersFromWorld(world, Bukkit.getWorlds().get(0))
+        .thenRun(() -> {
+            // Now unload the world
+            api.getWorldManager().unloadWorldAsync(worldName).thenAccept(success -> {
+                System.out.println("World unloaded: " + success);
+            });
+        });
+} else {
+    // No players, safe to unload
+    api.getWorldManager().unloadWorldAsync(worldName);
+}
+```
+
+</CodeGroup>
+
+### World Information
+
+<CodeGroup>
+
+```java Get World Info
+// Get detailed world information
+String worldName = "myworld";
+WorldInfo info = api.getWorldInfo(worldName);
+
+if (info != null) {
+    System.out.println("World: " + info.getName());
+    System.out.println("Environment: " + info.getEnvironment());
+    System.out.println("Loaded: " + info.isLoaded());
+    System.out.println("Players: " + info.getPlayerCount());
+    System.out.println("Size: " + info.getFormattedSize());
+}
+```
+
+```java List All Worlds
+// Get all worlds with their status
+api.getWorldManager().getAllWorlds().forEach(worldName -> {
+    boolean isLoaded = api.getWorldManager().isWorldLoaded(worldName);
+    WorldInfo info = api.getWorldInfo(worldName);
+    
+    String status = isLoaded ? "Loaded" : "Unloaded";
+    String players = isLoaded ? " (" + info.getPlayerCount() + " players)" : "";
+    
+    System.out.println(worldName + " - " + status + players);
+});
+```
+
+</CodeGroup>
+
+## Event Handling Examples
+
+### Basic Event Listening
+
+```java
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.hydr4.lilworlds.api.events.*;
+
+public class WorldEventListener implements Listener {
+    
+    @EventHandler
+    public void onWorldCreate(WorldCreateEvent event) {
+        String worldName = event.getWorldName();
+        
+        // Cancel creation of worlds with certain names
+        if (worldName.startsWith("temp_") || worldName.contains("test")) {
+            event.setCancelled(true);
+            event.setCancelReason("Temporary and test worlds are not allowed");
+            return;
+        }
+        
+        System.out.println("Creating world: " + worldName);
+    }
+    
+    @EventHandler
+    public void onWorldCreated(WorldCreatedEvent event) {
+        World world = event.getWorld();
+        
+        // Set up new world
+        world.setGameRuleValue("keepInventory", "true");
+        world.setGameRuleValue("mobGriefing", "false");
+        
+        // Announce to players
+        Bukkit.broadcastMessage("§aNew world '" + world.getName() + "' is now available!");
+    }
+    
+    @EventHandler
+    public void onWorldDelete(WorldDeleteEvent event) {
+        String worldName = event.getWorldName();
+        
+        // Protect important worlds
+        if (worldName.equals("spawn") || worldName.equals("main")) {
+            event.setCancelled(true);
+            event.setCancelReason("This world is protected from deletion");
+            
+            if (event.getDeleter() instanceof Player) {
+                event.getDeleter().sendMessage("§cThis world cannot be deleted!");
+            }
+        }
+    }
+    
+    @EventHandler
+    public void onWorldTeleport(WorldTeleportEvent event) {
+        Player player = event.getPlayer();
+        World toWorld = event.getToWorld();
+        
+        // Check permissions for special worlds
+        if (toWorld.getName().equals("admin_world")) {
+            if (!player.hasPermission("myplugin.admin")) {
+                event.setCancelled(true);
+                event.setCancelReason("No permission to enter admin world");
+                player.sendMessage("§cYou don't have permission to enter this world!");
+            }
+        }
+    }
+}
+```
+
+## Practical Plugin Examples
+
+### World GUI Plugin
+
+<Accordion title="Complete World GUI Plugin">
+
+```java
+public class WorldGUIPlugin extends JavaPlugin implements Listener {
+    
+    private LilWorldsAPI api;
+    
+    @Override
+    public void onEnable() {
+        this.api = LilWorldsAPI.getInstance();
+        getServer().getPluginManager().registerEvents(this, this);
+        getCommand("worldgui").setExecutor(this::openWorldGUI);
+    }
+    
+    private boolean openWorldGUI(CommandSender sender, Command cmd, String label, String[] args) {
+        if (!(sender instanceof Player)) return false;
+        
+        Player player = (Player) sender;
+        Inventory gui = Bukkit.createInventory(null, 54, "§6World Manager");
+        
+        // Add worlds to GUI
+        List<String> worlds = api.getWorldManager().getAllWorlds();
+        for (int i = 0; i < Math.min(worlds.size(), 54); i++) {
+            String worldName = worlds.get(i);
+            WorldInfo info = api.getWorldInfo(worldName);
+            
+            ItemStack item = new ItemStack(Material.GRASS_BLOCK);
+            ItemMeta meta = item.getItemMeta();
+            meta.setDisplayName("§a" + worldName);
+            
+            List<String> lore = Arrays.asList(
+                "§7Environment: §f" + info.getEnvironment(),
+                "§7Loaded: §f" + (info.isLoaded() ? "§aYes" : "§cNo"),
+                "§7Players: §f" + info.getPlayerCount(),
+                "§7Size: §f" + info.getFormattedSize(),
+                "",
+                "§eClick to teleport!"
+            );
+            meta.setLore(lore);
+            item.setItemMeta(meta);
+            
+            gui.setItem(i, item);
+        }
+        
+        player.openInventory(gui);
+        return true;
+    }
+    
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!event.getView().getTitle().equals("§6World Manager")) return;
+        
+        event.setCancelled(true);
+        
+        if (event.getCurrentItem() == null) return;
+        
+        Player player = (Player) event.getWhoClicked();
+        String worldName = ChatColor.stripColor(event.getCurrentItem().getItemMeta().getDisplayName());
+        
+        // Teleport player to world
+        World world = Bukkit.getWorld(worldName);
+        if (world != null) {
+            player.teleport(world.getSpawnLocation());
+            player.sendMessage("§aTeleported to " + worldName + "!");
+        } else {
+            player.sendMessage("§cWorld " + worldName + " is not loaded!");
+        }
+        
+        player.closeInventory();
+    }
+}
+```
+
+</Accordion>
+
+### Automatic World Backup System
+
+<Accordion title="World Backup System">
+
+```java
+public class WorldBackupPlugin extends JavaPlugin {
+    
+    private LilWorldsAPI api;
+    private ScheduledExecutorService scheduler;
+    
+    @Override
+    public void onEnable() {
+        this.api = LilWorldsAPI.getInstance();
+        this.scheduler = Executors.newScheduledThreadPool(2);
+        
+        // Schedule automatic backups every hour
+        scheduler.scheduleAtFixedRate(this::performBackups, 0, 1, TimeUnit.HOURS);
+        
+        // Command to manually backup a world
+        getCommand("backup").setExecutor(this::backupCommand);
+    }
+    
+    @Override
+    public void onDisable() {
+        if (scheduler != null) {
+            scheduler.shutdown();
+        }
+    }
+    
+    private void performBackups() {
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+        
+        for (String worldName : api.getWorldManager().getManagedWorlds()) {
+            String backupName = worldName + "_backup_" + timestamp;
+            
+            getLogger().info("Creating backup: " + backupName);
+            
+            api.getWorldManager().cloneWorldAsync(worldName, backupName)
+                .thenAccept(success -> {
+                    if (success) {
+                        getLogger().info("Backup created: " + backupName);
+                        
+                        // Unload backup world to save memory
+                        api.getWorldManager().unloadWorldAsync(backupName);
+                    } else {
+                        getLogger().warning("Failed to backup: " + worldName);
+                    }
+                });
+        }
+    }
+    
+    private boolean backupCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (args.length < 1) {
+            sender.sendMessage("§cUsage: /backup <world>");
+            return true;
+        }
+        
+        String worldName = args[0];
+        String backupName = worldName + "_manual_" + System.currentTimeMillis();
+        
+        sender.sendMessage("§eCreating backup of " + worldName + "...");
+        
+        api.getWorldManager().cloneWorldAsync(worldName, backupName)
+            .thenAccept(success -> {
+                if (success) {
+                    sender.sendMessage("§aBackup created: " + backupName);
+                } else {
+                    sender.sendMessage("§cFailed to create backup!");
+                }
+            });
+        
+        return true;
+    }
+}
+```
+
+</Accordion>
+
+### World Protection System
+
+<Accordion title="World Protection Plugin">
+
+```java
+public class WorldProtectionPlugin extends JavaPlugin implements Listener {
+    
+    private LilWorldsAPI api;
+    private Set<String> protectedWorlds;
+    private Map<String, String> worldPermissions;
+    
+    @Override
+    public void onEnable() {
+        this.api = LilWorldsAPI.getInstance();
+        this.protectedWorlds = new HashSet<>();
+        this.worldPermissions = new HashMap<>();
+        
+        // Load configuration
+        loadConfiguration();
+        
+        getServer().getPluginManager().registerEvents(this, this);
+        getCommand("protect").setExecutor(this::protectCommand);
+    }
+    
+    private void loadConfiguration() {
+        // Load protected worlds from config
+        protectedWorlds.addAll(getConfig().getStringList("protected-worlds"));
+        
+        // Load world permissions
+        ConfigurationSection perms = getConfig().getConfigurationSection("world-permissions");
+        if (perms != null) {
+            for (String world : perms.getKeys(false)) {
+                worldPermissions.put(world, perms.getString(world));
+            }
+        }
+    }
+    
+    @EventHandler
+    public void onWorldDelete(WorldDeleteEvent event) {
+        String worldName = event.getWorldName();
+        
+        if (protectedWorlds.contains(worldName)) {
+            event.setCancelled(true);
+            event.setCancelReason("This world is protected from deletion");
+            
+            if (event.getDeleter() instanceof Player) {
+                event.getDeleter().sendMessage("§cThis world is protected and cannot be deleted!");
+            }
+            
+            getLogger().warning("Attempted deletion of protected world: " + worldName);
+        }
+    }
+    
+    @EventHandler
+    public void onWorldTeleport(WorldTeleportEvent event) {
+        Player player = event.getPlayer();
+        String worldName = event.getToWorld().getName();
+        
+        // Check if world requires special permission
+        String requiredPermission = worldPermissions.get(worldName);
+        if (requiredPermission != null && !player.hasPermission(requiredPermission)) {
+            event.setCancelled(true);
+            event.setCancelReason("No permission to enter this world");
+            player.sendMessage("§cYou don't have permission to enter " + worldName + "!");
+            return;
+        }
+        
+        // Log teleportation for monitoring
+        getLogger().info(player.getName() + " teleported to " + worldName);
+    }
+    
+    private boolean protectCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /protect <add|remove> <world>");
+            return true;
+        }
+        
+        String action = args[0].toLowerCase();
+        String worldName = args[1];
+        
+        switch (action) {
+            case "add":
+                protectedWorlds.add(worldName);
+                sender.sendMessage("§aWorld " + worldName + " is now protected!");
+                break;
+                
+            case "remove":
+                protectedWorlds.remove(worldName);
+                sender.sendMessage("§aWorld " + worldName + " is no longer protected!");
+                break;
+                
+            default:
+                sender.sendMessage("§cInvalid action! Use 'add' or 'remove'");
+                return true;
+        }
+        
+        // Save to config
+        getConfig().set("protected-worlds", new ArrayList<>(protectedWorlds));
+        saveConfig();
+        
+        return true;
+    }
+}
+```
+
+</Accordion>
+
+## Utility Examples
+
+### World Size Calculator
+
+```java
+public void calculateWorldSizes() {
+    api.getWorldManager().getAllWorlds().forEach(worldName -> {
+        // Calculate world size asynchronously
+        api.getWorldUtils().calculateWorldSizeAsync(worldName).thenAccept(sizeBytes -> {
+            String formattedSize = api.getWorldUtils().formatSize(sizeBytes);
+            System.out.println(worldName + ": " + formattedSize);
+        });
+    });
+}
+```
+
+### Safe Player Teleportation
+
+```java
+public void teleportPlayerSafely(Player player, String worldName) {
+    World world = Bukkit.getWorld(worldName);
+    if (world == null) {
+        player.sendMessage("§cWorld not found!");
+        return;
+    }
+    
+    // Find safe spawn location
+    api.getWorldUtils().findSafeSpawnLocation(world).thenAccept(safeLocation -> {
+        if (safeLocation != null) {
+            player.teleport(safeLocation);
+            player.sendMessage("§aTeleported to " + worldName + "!");
+        } else {
+            player.sendMessage("§cNo safe location found in " + worldName + "!");
+        }
+    });
+}
+```
+
+### World Cleanup
+
+```java
+public void cleanupUnusedWorlds() {
+    api.getWorldManager().getAllWorlds().forEach(worldName -> {
+        WorldInfo info = api.getWorldInfo(worldName);
+        
+        // Unload worlds with no players that haven't been accessed recently
+        if (info.isLoaded() && info.getPlayerCount() == 0) {
+            // Check if world has been inactive for more than 1 hour
+            long lastAccess = info.getLastAccessTime();
+            long oneHourAgo = System.currentTimeMillis() - (60 * 60 * 1000);
+            
+            if (lastAccess < oneHourAgo) {
+                api.getWorldManager().unloadWorldAsync(worldName).thenAccept(success -> {
+                    if (success) {
+                        System.out.println("Unloaded inactive world: " + worldName);
+                    }
+                });
+            }
+        }
+    });
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Use Async Operations" icon="arrows-rotate">
+    ```java
+    // Good - Non-blocking
+    api.getWorldManager().loadWorldAsync("world").thenAccept(success -> {
+        // Handle result on main thread
+    });
+    
+    // Avoid - Blocking main thread
+    // boolean success = api.getWorldManager().loadWorld("world");
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle Errors Gracefully" icon="exclamation-triangle">
+    ```java
+    api.createWorld("myworld")
+        .onSuccess(world -> {
+            // Success handling
+        })
+        .onFailure(error -> {
+            // Always handle failures
+            getLogger().warning("World creation failed: " + error);
+        })
+        .buildAsync();
+    ```
+  </Accordion>
+  
+  <Accordion title="Check API Availability" icon="shield">
+    ```java
+    @Override
+    public void onEnable() {
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found!");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        
+        this.api = LilWorldsAPI.getInstance();
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<Note>
+**Want to see more examples?** Check out the [detailed examples section](/lilworlds/api/examples/basic-usage) or explore the [API classes documentation](/lilworlds/api/classes/lilworlds-api) for complete method references.
+</Note>

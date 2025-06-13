@@ -1,0 +1,689 @@
+---
+title: 'Basic Usage Examples'
+description: 'Practical examples for common LilWorlds API use cases'
+icon: 'code'
+---
+
+# Basic Usage Examples
+
+This page provides practical, real-world examples of using the LilWorlds API for common world management tasks.
+
+## Simple World Manager Plugin
+
+Here's a complete example of a basic world manager plugin:
+
+```java
+package com.example.worldmanager;
+
+import org.bukkit.World;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.plugin.JavaPlugin;
+import org.hydr4.lilworlds.api.LilWorldsAPI;
+import org.hydr4.lilworlds.api.events.WorldCreatedEvent;
+import org.hydr4.lilworlds.api.world.WorldInfo;
+
+public class SimpleWorldManager extends JavaPlugin implements Listener {
+    
+    private LilWorldsAPI api;
+    
+    @Override
+    public void onEnable() {
+        // Check if LilWorlds is available
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found! Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        
+        // Initialize API
+        this.api = LilWorldsAPI.getInstance();
+        getLogger().info("Connected to LilWorlds API v" + api.getVersion());
+        
+        // Register events
+        getServer().getPluginManager().registerEvents(this, this);
+        
+        getLogger().info("SimpleWorldManager enabled!");
+    }
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players!");
+            return true;
+        }
+        
+        Player player = (Player) sender;
+        
+        switch (command.getName().toLowerCase()) {
+            case "createworld":
+                return handleCreateWorld(player, args);
+            case "deleteworld":
+                return handleDeleteWorld(player, args);
+            case "tpworld":
+                return handleTeleportWorld(player, args);
+            case "worldinfo":
+                return handleWorldInfo(player, args);
+            case "listworlds":
+                return handleListWorlds(player);
+            default:
+                return false;
+        }
+    }
+    
+    private boolean handleCreateWorld(Player player, String[] args) {
+        if (args.length < 1) {
+            player.sendMessage("§cUsage: /createworld <name> [environment] [generator]");
+            return true;
+        }
+        
+        String worldName = args[0];
+        World.Environment environment = World.Environment.NORMAL;
+        String generator = "default";
+        
+        // Parse environment
+        if (args.length > 1) {
+            try {
+                environment = World.Environment.valueOf(args[1].toUpperCase());
+            } catch (IllegalArgumentException e) {
+                player.sendMessage("§cInvalid environment! Use: NORMAL, NETHER, or THE_END");
+                return true;
+            }
+        }
+        
+        // Parse generator
+        if (args.length > 2) {
+            generator = args[2];
+        }
+        
+        player.sendMessage("§eCreating world '" + worldName + "'...");
+        
+        // Create the world
+        api.createWorld(worldName)
+            .environment(environment)
+            .generator(generator)
+            .structures(true)
+            .onSuccess(world -> {
+                player.sendMessage("§aWorld '" + worldName + "' created successfully!");
+                player.sendMessage("§7Use /tpworld " + worldName + " to visit it");
+            })
+            .onFailure(error -> {
+                player.sendMessage("§cFailed to create world: " + error);
+            })
+            .buildAsync();
+        
+        return true;
+    }
+    
+    private boolean handleDeleteWorld(Player player, String[] args) {
+        if (args.length < 1) {
+            player.sendMessage("§cUsage: /deleteworld <name>");
+            return true;
+        }
+        
+        String worldName = args[0];
+        
+        // Safety check
+        if (worldName.equals("world") || worldName.equals(player.getWorld().getName())) {
+            player.sendMessage("§cCannot delete the main world or your current world!");
+            return true;
+        }
+        
+        player.sendMessage("§eDeleting world '" + worldName + "'...");
+        
+        api.getWorldManager().deleteWorldAsync(worldName).thenAccept(success -> {
+            if (success) {
+                player.sendMessage("§aWorld '" + worldName + "' deleted successfully!");
+            } else {
+                player.sendMessage("§cFailed to delete world '" + worldName + "'!");
+            }
+        });
+        
+        return true;
+    }
+    
+    private boolean handleTeleportWorld(Player player, String[] args) {
+        if (args.length < 1) {
+            player.sendMessage("§cUsage: /tpworld <name>");
+            return true;
+        }
+        
+        String worldName = args[0];
+        World world = getServer().getWorld(worldName);
+        
+        if (world == null) {
+            player.sendMessage("§cWorld '" + worldName + "' not found or not loaded!");
+            return true;
+        }
+        
+        player.teleport(world.getSpawnLocation());
+        player.sendMessage("§aTeleported to world '" + worldName + "'!");
+        
+        return true;
+    }
+    
+    private boolean handleWorldInfo(Player player, String[] args) {
+        String worldName;
+        
+        if (args.length > 0) {
+            worldName = args[0];
+        } else {
+            worldName = player.getWorld().getName();
+        }
+        
+        WorldInfo info = api.getWorldInfo(worldName);
+        if (info == null) {
+            player.sendMessage("§cWorld '" + worldName + "' not found!");
+            return true;
+        }
+        
+        player.sendMessage("§6=== World Information ===");
+        player.sendMessage("§7Name: §f" + info.getName());
+        player.sendMessage("§7Environment: §f" + info.getEnvironment());
+        player.sendMessage("§7Loaded: §f" + (info.isLoaded() ? "§aYes" : "§cNo"));
+        player.sendMessage("§7Players: §f" + info.getPlayerCount());
+        player.sendMessage("§7Size: §f" + info.getFormattedSize());
+        
+        if (info.isLoaded()) {
+            World world = getServer().getWorld(worldName);
+            player.sendMessage("§7Time: §f" + world.getTime());
+            player.sendMessage("§7Weather: §f" + (world.hasStorm() ? "Storm" : "Clear"));
+        }
+        
+        return true;
+    }
+    
+    private boolean handleListWorlds(Player player) {
+        player.sendMessage("§6=== World List ===");
+        
+        api.getWorldManager().getAllWorlds().forEach(worldName -> {
+            WorldInfo info = api.getWorldInfo(worldName);
+            boolean isLoaded = info.isLoaded();
+            
+            String status = isLoaded ? "§aLoaded" : "§cUnloaded";
+            String players = isLoaded ? " §7(" + info.getPlayerCount() + " players)" : "";
+            
+            player.sendMessage("§f- " + worldName + " " + status + players);
+        });
+        
+        return true;
+    }
+    
+    @EventHandler
+    public void onWorldCreated(WorldCreatedEvent event) {
+        World world = event.getWorld();
+        
+        // Set up new worlds with default settings
+        world.setGameRuleValue("keepInventory", "true");
+        world.setGameRuleValue("announceAdvancements", "false");
+        
+        // Announce to all players
+        getServer().broadcastMessage("§aNew world '" + world.getName() + "' is now available!");
+    }
+}
+```
+
+### Plugin.yml Configuration
+
+```yaml
+name: SimpleWorldManager
+version: 1.0.0
+main: com.example.worldmanager.SimpleWorldManager
+api-version: 1.16
+depend: [LilWorlds]
+
+description: Simple world management plugin using LilWorlds API
+author: YourName
+
+commands:
+  createworld:
+    description: Create a new world
+    usage: /createworld <name> [environment] [generator]
+    permission: worldmanager.create
+  deleteworld:
+    description: Delete a world
+    usage: /deleteworld <name>
+    permission: worldmanager.delete
+  tpworld:
+    description: Teleport to a world
+    usage: /tpworld <name>
+    permission: worldmanager.teleport
+  worldinfo:
+    description: Get world information
+    usage: /worldinfo [name]
+    permission: worldmanager.info
+  listworlds:
+    description: List all worlds
+    usage: /listworlds
+    permission: worldmanager.list
+
+permissions:
+  worldmanager.*:
+    description: All WorldManager permissions
+    children:
+      worldmanager.create: true
+      worldmanager.delete: true
+      worldmanager.teleport: true
+      worldmanager.info: true
+      worldmanager.list: true
+  worldmanager.create:
+    description: Create worlds
+    default: op
+  worldmanager.delete:
+    description: Delete worlds
+    default: op
+  worldmanager.teleport:
+    description: Teleport to worlds
+    default: true
+  worldmanager.info:
+    description: View world information
+    default: true
+  worldmanager.list:
+    description: List worlds
+    default: true
+```
+
+## World Template System
+
+Here's an example of a world template system that creates pre-configured worlds:
+
+```java
+public class WorldTemplateManager {
+    
+    private final LilWorldsAPI api;
+    private final JavaPlugin plugin;
+    
+    public WorldTemplateManager(JavaPlugin plugin, LilWorldsAPI api) {
+        this.plugin = plugin;
+        this.api = api;
+    }
+    
+    public void createSurvivalWorld(String name, Player creator) {
+        api.createWorld(name)
+            .environment(World.Environment.NORMAL)
+            .generator("default")
+            .structures(true)
+            .onSuccess(world -> {
+                setupSurvivalWorld(world);
+                creator.sendMessage("§aSurvival world '" + name + "' created!");
+                creator.teleport(world.getSpawnLocation());
+            })
+            .onFailure(error -> {
+                creator.sendMessage("§cFailed to create survival world: " + error);
+            })
+            .buildAsync();
+    }
+    
+    public void createCreativeWorld(String name, Player creator) {
+        api.createWorld(name)
+            .environment(World.Environment.NORMAL)
+            .generator("superflat")
+            .structures(false)
+            .onSuccess(world -> {
+                setupCreativeWorld(world);
+                creator.sendMessage("§aCreative world '" + name + "' created!");
+                creator.teleport(world.getSpawnLocation());
+            })
+            .onFailure(error -> {
+                creator.sendMessage("§cFailed to create creative world: " + error);
+            })
+            .buildAsync();
+    }
+    
+    public void createPvPWorld(String name, Player creator) {
+        api.createWorld(name)
+            .environment(World.Environment.NORMAL)
+            .generator("default")
+            .structures(true)
+            .onSuccess(world -> {
+                setupPvPWorld(world);
+                creator.sendMessage("§aPvP world '" + name + "' created!");
+                creator.teleport(world.getSpawnLocation());
+            })
+            .onFailure(error -> {
+                creator.sendMessage("§cFailed to create PvP world: " + error);
+            })
+            .buildAsync();
+    }
+    
+    private void setupSurvivalWorld(World world) {
+        // Survival settings
+        world.setGameRuleValue("keepInventory", "false");
+        world.setGameRuleValue("mobGriefing", "true");
+        world.setGameRuleValue("naturalRegeneration", "true");
+        world.setGameRuleValue("doDaylightCycle", "true");
+        world.setGameRuleValue("doWeatherCycle", "true");
+        world.setDifficulty(Difficulty.NORMAL);
+        world.setPVP(false);
+        
+        // Set spawn protection
+        world.setGameRuleValue("spawnRadius", "16");
+    }
+    
+    private void setupCreativeWorld(World world) {
+        // Creative settings
+        world.setGameRuleValue("keepInventory", "true");
+        world.setGameRuleValue("mobGriefing", "false");
+        world.setGameRuleValue("doMobSpawning", "false");
+        world.setGameRuleValue("doDaylightCycle", "false");
+        world.setGameRuleValue("doWeatherCycle", "false");
+        world.setTime(6000); // Noon
+        world.setStorm(false);
+        world.setPVP(false);
+        
+        // Set world border
+        world.getWorldBorder().setSize(1000);
+        world.getWorldBorder().setCenter(0, 0);
+    }
+    
+    private void setupPvPWorld(World world) {
+        // PvP settings
+        world.setGameRuleValue("keepInventory", "false");
+        world.setGameRuleValue("naturalRegeneration", "false");
+        world.setGameRuleValue("doFireTick", "false");
+        world.setGameRuleValue("mobGriefing", "false");
+        world.setDifficulty(Difficulty.HARD);
+        world.setPVP(true);
+        
+        // No spawn protection in PvP
+        world.setGameRuleValue("spawnRadius", "0");
+        
+        // Set smaller world border for intense PvP
+        world.getWorldBorder().setSize(500);
+        world.getWorldBorder().setCenter(0, 0);
+    }
+}
+```
+
+## World Backup Manager
+
+Here's a simple backup system using the API:
+
+```java
+public class WorldBackupManager {
+    
+    private final LilWorldsAPI api;
+    private final JavaPlugin plugin;
+    private final ScheduledExecutorService scheduler;
+    
+    public WorldBackupManager(JavaPlugin plugin, LilWorldsAPI api) {
+        this.plugin = plugin;
+        this.api = api;
+        this.scheduler = Executors.newScheduledThreadPool(1);
+        
+        // Schedule automatic backups every 6 hours
+        scheduler.scheduleAtFixedRate(this::performAutoBackup, 0, 6, TimeUnit.HOURS);
+    }
+    
+    public void shutdown() {
+        scheduler.shutdown();
+    }
+    
+    public void backupWorld(String worldName, CommandSender sender) {
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+        String backupName = worldName + "_backup_" + timestamp;
+        
+        sender.sendMessage("§eCreating backup of '" + worldName + "'...");
+        
+        api.getWorldManager().cloneWorldAsync(worldName, backupName)
+            .thenAccept(success -> {
+                if (success) {
+                    sender.sendMessage("§aBackup created: " + backupName);
+                    
+                    // Unload backup to save memory
+                    api.getWorldManager().unloadWorldAsync(backupName);
+                } else {
+                    sender.sendMessage("§cFailed to create backup!");
+                }
+            });
+    }
+    
+    public void restoreWorld(String worldName, String backupName, CommandSender sender) {
+        sender.sendMessage("§eRestoring '" + worldName + "' from backup '" + backupName + "'...");
+        
+        // First, delete the current world
+        api.getWorldManager().deleteWorldAsync(worldName).thenAccept(deleted -> {
+            if (deleted) {
+                // Clone the backup to restore
+                api.getWorldManager().cloneWorldAsync(backupName, worldName)
+                    .thenAccept(restored -> {
+                        if (restored) {
+                            sender.sendMessage("§aWorld restored successfully!");
+                            
+                            // Load the restored world
+                            api.getWorldManager().loadWorldAsync(worldName);
+                        } else {
+                            sender.sendMessage("§cFailed to restore world!");
+                        }
+                    });
+            } else {
+                sender.sendMessage("§cFailed to delete current world!");
+            }
+        });
+    }
+    
+    public void listBackups(String worldName, CommandSender sender) {
+        sender.sendMessage("§6=== Backups for " + worldName + " ===");
+        
+        List<String> backups = api.getWorldManager().getAllWorlds().stream()
+            .filter(name -> name.startsWith(worldName + "_backup_"))
+            .sorted()
+            .collect(Collectors.toList());
+        
+        if (backups.isEmpty()) {
+            sender.sendMessage("§7No backups found for " + worldName);
+            return;
+        }
+        
+        backups.forEach(backup -> {
+            WorldInfo info = api.getWorldInfo(backup);
+            String size = info.getFormattedSize();
+            sender.sendMessage("§f- " + backup + " §7(" + size + ")");
+        });
+    }
+    
+    private void performAutoBackup() {
+        plugin.getLogger().info("Starting automatic world backup...");
+        
+        // Backup all loaded worlds
+        api.getWorldManager().getAllWorlds().stream()
+            .filter(worldName -> api.getWorldManager().isWorldLoaded(worldName))
+            .filter(worldName -> !worldName.contains("_backup_")) // Don't backup backups
+            .forEach(worldName -> {
+                String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+                String backupName = worldName + "_auto_" + timestamp;
+                
+                api.getWorldManager().cloneWorldAsync(worldName, backupName)
+                    .thenAccept(success -> {
+                        if (success) {
+                            plugin.getLogger().info("Auto-backup created: " + backupName);
+                            
+                            // Unload backup to save memory
+                            api.getWorldManager().unloadWorldAsync(backupName);
+                        } else {
+                            plugin.getLogger().warning("Failed to create auto-backup for: " + worldName);
+                        }
+                    });
+            });
+        
+        // Clean up old backups (keep only last 5)
+        cleanupOldBackups();
+    }
+    
+    private void cleanupOldBackups() {
+        Map<String, List<String>> worldBackups = new HashMap<>();
+        
+        // Group backups by world
+        api.getWorldManager().getAllWorlds().stream()
+            .filter(name -> name.contains("_auto_"))
+            .forEach(backup -> {
+                String worldName = backup.substring(0, backup.indexOf("_auto_"));
+                worldBackups.computeIfAbsent(worldName, k -> new ArrayList<>()).add(backup);
+            });
+        
+        // Keep only the 5 most recent backups for each world
+        worldBackups.forEach((worldName, backups) -> {
+            if (backups.size() > 5) {
+                backups.sort(Collections.reverseOrder()); // Most recent first
+                List<String> toDelete = backups.subList(5, backups.size());
+                
+                toDelete.forEach(backup -> {
+                    api.getWorldManager().deleteWorldAsync(backup).thenAccept(success -> {
+                        if (success) {
+                            plugin.getLogger().info("Cleaned up old backup: " + backup);
+                        }
+                    });
+                });
+            }
+        });
+    }
+}
+```
+
+## World Statistics Tracker
+
+Track world usage and statistics:
+
+```java
+public class WorldStatsTracker implements Listener {
+    
+    private final LilWorldsAPI api;
+    private final Map<String, WorldStats> worldStats;
+    
+    public WorldStatsTracker(LilWorldsAPI api) {
+        this.api = api;
+        this.worldStats = new HashMap<>();
+    }
+    
+    @EventHandler
+    public void onWorldCreated(WorldCreatedEvent event) {
+        String worldName = event.getWorld().getName();
+        worldStats.put(worldName, new WorldStats(worldName));
+    }
+    
+    @EventHandler
+    public void onWorldTeleport(WorldTeleportEvent event) {
+        String worldName = event.getToWorld().getName();
+        WorldStats stats = worldStats.get(worldName);
+        if (stats != null) {
+            stats.recordVisit(event.getPlayer());
+        }
+    }
+    
+    public void showStats(String worldName, CommandSender sender) {
+        WorldStats stats = worldStats.get(worldName);
+        if (stats == null) {
+            sender.sendMessage("§cNo statistics available for " + worldName);
+            return;
+        }
+        
+        sender.sendMessage("§6=== Statistics for " + worldName + " ===");
+        sender.sendMessage("§7Total visits: §f" + stats.getTotalVisits());
+        sender.sendMessage("§7Unique visitors: §f" + stats.getUniqueVisitors());
+        sender.sendMessage("§7Created: §f" + stats.getCreationDate());
+        sender.sendMessage("§7Last visit: §f" + stats.getLastVisit());
+        
+        WorldInfo info = api.getWorldInfo(worldName);
+        if (info != null) {
+            sender.sendMessage("§7Current players: §f" + info.getPlayerCount());
+            sender.sendMessage("§7World size: §f" + info.getFormattedSize());
+        }
+    }
+    
+    private static class WorldStats {
+        private final String worldName;
+        private final long creationTime;
+        private final Set<UUID> visitors;
+        private int totalVisits;
+        private long lastVisit;
+        
+        public WorldStats(String worldName) {
+            this.worldName = worldName;
+            this.creationTime = System.currentTimeMillis();
+            this.visitors = new HashSet<>();
+            this.totalVisits = 0;
+            this.lastVisit = creationTime;
+        }
+        
+        public void recordVisit(Player player) {
+            visitors.add(player.getUniqueId());
+            totalVisits++;
+            lastVisit = System.currentTimeMillis();
+        }
+        
+        public int getTotalVisits() { return totalVisits; }
+        public int getUniqueVisitors() { return visitors.size(); }
+        public String getCreationDate() {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(creationTime));
+        }
+        public String getLastVisit() {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(lastVisit));
+        }
+    }
+}
+```
+
+## Best Practices Summary
+
+<AccordionGroup>
+  <Accordion title="Always Check Dependencies" icon="shield">
+    ```java
+    @Override
+    public void onEnable() {
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found!");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        this.api = LilWorldsAPI.getInstance();
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Async Operations" icon="arrows-rotate">
+    ```java
+    // Good - Non-blocking
+    api.getWorldManager().loadWorldAsync("world").thenAccept(success -> {
+        // Handle result
+    });
+    
+    // Avoid - Blocks main thread
+    // boolean success = api.getWorldManager().loadWorld("world");
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle All Errors" icon="exclamation-triangle">
+    ```java
+    api.createWorld("world")
+        .onSuccess(world -> { /* success */ })
+        .onFailure(error -> {
+            getLogger().warning("Failed: " + error);
+        })
+        .buildAsync();
+    ```
+  </Accordion>
+  
+  <Accordion title="Validate Input" icon="check">
+    ```java
+    if (args.length < 1) {
+        sender.sendMessage("Usage: /command <world>");
+        return true;
+    }
+    
+    String worldName = args[0];
+    if (worldName.isEmpty() || worldName.contains("..")) {
+        sender.sendMessage("Invalid world name!");
+        return true;
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<Note>
+**Need more advanced examples?** Check out the [World GUI Plugin](/lilworlds/api/examples/world-gui), [Backup System](/lilworlds/api/examples/backup-system), or [Protection Plugin](/lilworlds/api/examples/protection-plugin) examples for more complex implementations.
+</Note>

@@ -1,0 +1,456 @@
+---
+title: 'Events Overview'
+description: 'Complete guide to the LilWorlds event system'
+icon: 'broadcast-tower'
+---
+
+# LilWorlds Events System
+
+LilWorlds 1.4.0 introduces a comprehensive event system that allows developers to hook into world operations and add custom behavior. All events are cancellable where appropriate and provide detailed information about the operation.
+
+## Available Events
+
+<CardGroup cols={2}>
+  <Card
+    title="WorldCreateEvent"
+    icon="plus"
+    href="/lilworlds/api/events/world-create"
+  >
+    Fired before world creation (cancellable)
+  </Card>
+  <Card
+    title="WorldCreatedEvent"
+    icon="check"
+    href="/lilworlds/api/events/world-created"
+  >
+    Fired after successful world creation
+  </Card>
+  <Card
+    title="WorldDeleteEvent"
+    icon="trash"
+    href="/lilworlds/api/events/world-delete"
+  >
+    Fired before world deletion (cancellable)
+  </Card>
+  <Card
+    title="WorldTeleportEvent"
+    icon="location-arrow"
+    href="/lilworlds/api/events/world-teleport"
+  >
+    Fired before player teleportation (cancellable)
+  </Card>
+</CardGroup>
+
+## Event Hierarchy
+
+All LilWorlds events extend the base `LilWorldsEvent` class:
+
+```java
+LilWorldsEvent
+├── WorldCreateEvent (Cancellable)
+├── WorldCreatedEvent
+├── WorldDeleteEvent (Cancellable)
+└── WorldTeleportEvent (Cancellable)
+```
+
+## Basic Event Listening
+
+To listen to LilWorlds events, create a listener class and register it:
+
+```java
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.hydr4.lilworlds.api.events.*;
+
+public class WorldEventListener implements Listener {
+    
+    @EventHandler
+    public void onWorldCreate(WorldCreateEvent event) {
+        String worldName = event.getWorldName();
+        System.out.println("World '" + worldName + "' is about to be created");
+        
+        // Cancel creation of test worlds
+        if (worldName.startsWith("test_")) {
+            event.setCancelled(true);
+            event.setCancelReason("Test worlds are not allowed");
+        }
+    }
+    
+    @EventHandler
+    public void onWorldCreated(WorldCreatedEvent event) {
+        World world = event.getWorld();
+        System.out.println("World '" + world.getName() + "' has been created!");
+        
+        // Set up the new world
+        world.setGameRuleValue("keepInventory", "true");
+    }
+}
+
+// Register the listener in your plugin
+getServer().getPluginManager().registerEvents(new WorldEventListener(), this);
+```
+
+## Event Properties
+
+### Common Properties
+
+All LilWorlds events provide these common properties:
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `getEventName()` | String | The name of the event |
+| `getTimestamp()` | long | When the event was fired (milliseconds) |
+| `getPlugin()` | Plugin | The plugin that triggered the event |
+
+### Cancellable Events
+
+Events that implement `Cancellable` provide additional methods:
+
+| Method | Description |
+| --- | --- |
+| `isCancelled()` | Check if the event is cancelled |
+| `setCancelled(boolean)` | Cancel or uncancel the event |
+| `getCancelReason()` | Get the reason for cancellation |
+| `setCancelReason(String)` | Set a custom cancellation reason |
+
+## Event Examples
+
+### World Creation Protection
+
+```java
+@EventHandler
+public void onWorldCreate(WorldCreateEvent event) {
+    String worldName = event.getWorldName();
+    Player creator = event.getCreator();
+    
+    // Protect against certain world names
+    if (worldName.equals("spawn") || worldName.equals("hub")) {
+        event.setCancelled(true);
+        event.setCancelReason("Reserved world name");
+        
+        if (creator != null) {
+            creator.sendMessage("§cCannot create world with reserved name!");
+        }
+        return;
+    }
+    
+    // Limit worlds per player
+    if (creator != null) {
+        long playerWorlds = getPlayerWorldCount(creator);
+        if (playerWorlds >= 3) {
+            event.setCancelled(true);
+            event.setCancelReason("Player world limit reached");
+            creator.sendMessage("§cYou can only create 3 worlds!");
+        }
+    }
+}
+```
+
+### Automatic World Setup
+
+```java
+@EventHandler
+public void onWorldCreated(WorldCreatedEvent event) {
+    World world = event.getWorld();
+    String worldName = world.getName();
+    
+    // Set up different world types
+    if (worldName.startsWith("pvp_")) {
+        setupPvPWorld(world);
+    } else if (worldName.startsWith("creative_")) {
+        setupCreativeWorld(world);
+    } else if (worldName.startsWith("survival_")) {
+        setupSurvivalWorld(world);
+    }
+    
+    // Announce new world
+    Bukkit.broadcastMessage("§aNew world '" + worldName + "' is now available!");
+}
+
+private void setupPvPWorld(World world) {
+    world.setGameRuleValue("keepInventory", "false");
+    world.setGameRuleValue("naturalRegeneration", "false");
+    world.setGameRuleValue("doFireTick", "false");
+    world.setPVP(true);
+}
+
+private void setupCreativeWorld(World world) {
+    world.setGameRuleValue("keepInventory", "true");
+    world.setGameRuleValue("mobGriefing", "false");
+    world.setGameRuleValue("doDaylightCycle", "false");
+    world.setTime(6000); // Noon
+}
+```
+
+### World Deletion Protection
+
+```java
+@EventHandler
+public void onWorldDelete(WorldDeleteEvent event) {
+    String worldName = event.getWorldName();
+    CommandSender deleter = event.getDeleter();
+    
+    // Protect important worlds
+    List<String> protectedWorlds = Arrays.asList("spawn", "hub", "main");
+    if (protectedWorlds.contains(worldName)) {
+        event.setCancelled(true);
+        event.setCancelReason("This world is protected from deletion");
+        
+        if (deleter instanceof Player) {
+            deleter.sendMessage("§cThis world cannot be deleted!");
+        }
+        return;
+    }
+    
+    // Require confirmation for worlds with players
+    World world = Bukkit.getWorld(worldName);
+    if (world != null && !world.getPlayers().isEmpty()) {
+        event.setCancelled(true);
+        event.setCancelReason("World has active players");
+        
+        if (deleter instanceof Player) {
+            deleter.sendMessage("§cCannot delete world with active players!");
+        }
+    }
+}
+```
+
+### Teleportation Control
+
+```java
+@EventHandler
+public void onWorldTeleport(WorldTeleportEvent event) {
+    Player player = event.getPlayer();
+    World fromWorld = event.getFromWorld();
+    World toWorld = event.getToWorld();
+    
+    // Check permissions for special worlds
+    if (toWorld.getName().startsWith("admin_")) {
+        if (!player.hasPermission("myplugin.admin")) {
+            event.setCancelled(true);
+            event.setCancelReason("No permission for admin worlds");
+            player.sendMessage("§cYou don't have permission to enter admin worlds!");
+            return;
+        }
+    }
+    
+    // Economy cost for teleportation
+    if (hasEconomy() && !player.hasPermission("myplugin.freeteleport")) {
+        double cost = 10.0;
+        if (!economy.has(player, cost)) {
+            event.setCancelled(true);
+            event.setCancelReason("Insufficient funds");
+            player.sendMessage("§cYou need $" + cost + " to teleport!");
+            return;
+        }
+        
+        // Charge the player
+        economy.withdrawPlayer(player, cost);
+        player.sendMessage("§aCharged $" + cost + " for teleportation");
+    }
+    
+    // Log teleportation
+    getLogger().info(player.getName() + " teleported from " + 
+                    fromWorld.getName() + " to " + toWorld.getName());
+}
+```
+
+## Event Priority
+
+You can set event priority to control the order of event handling:
+
+```java
+@EventHandler(priority = EventPriority.HIGH)
+public void onWorldCreateHigh(WorldCreateEvent event) {
+    // This runs before normal priority handlers
+}
+
+@EventHandler(priority = EventPriority.LOW)
+public void onWorldCreateLow(WorldCreateEvent event) {
+    // This runs after normal priority handlers
+}
+```
+
+**Priority Order:** `LOWEST` → `LOW` → `NORMAL` → `HIGH` → `HIGHEST` → `MONITOR`
+
+<Info>
+Use `MONITOR` priority only for logging/monitoring. Don't modify the event at this priority.
+</Info>
+
+## Ignoring Cancelled Events
+
+By default, your event handler will still be called even if the event is cancelled. To ignore cancelled events:
+
+```java
+@EventHandler(ignoreCancelled = true)
+public void onWorldCreate(WorldCreateEvent event) {
+    // This won't be called if the event is already cancelled
+    String worldName = event.getWorldName();
+    System.out.println("Creating world: " + worldName);
+}
+```
+
+## Advanced Event Handling
+
+### Conditional Event Handling
+
+```java
+@EventHandler
+public void onWorldCreate(WorldCreateEvent event) {
+    // Only handle events from specific plugins
+    if (!event.getPlugin().getName().equals("MyPlugin")) {
+        return;
+    }
+    
+    // Only handle events during certain times
+    LocalTime now = LocalTime.now();
+    if (now.isBefore(LocalTime.of(9, 0)) || now.isAfter(LocalTime.of(17, 0))) {
+        event.setCancelled(true);
+        event.setCancelReason("World creation only allowed during business hours");
+    }
+}
+```
+
+### Event Data Storage
+
+```java
+public class WorldEventTracker implements Listener {
+    
+    private final Map<String, Long> worldCreationTimes = new HashMap<>();
+    private final Map<String, Integer> worldAccessCount = new HashMap<>();
+    
+    @EventHandler
+    public void onWorldCreated(WorldCreatedEvent event) {
+        String worldName = event.getWorld().getName();
+        worldCreationTimes.put(worldName, System.currentTimeMillis());
+        worldAccessCount.put(worldName, 0);
+    }
+    
+    @EventHandler
+    public void onWorldTeleport(WorldTeleportEvent event) {
+        String worldName = event.getToWorld().getName();
+        worldAccessCount.merge(worldName, 1, Integer::sum);
+    }
+    
+    public void printWorldStats() {
+        worldCreationTimes.forEach((world, time) -> {
+            long age = System.currentTimeMillis() - time;
+            int accesses = worldAccessCount.getOrDefault(world, 0);
+            
+            System.out.println(String.format(
+                "World: %s | Age: %d hours | Accesses: %d",
+                world, age / (1000 * 60 * 60), accesses
+            ));
+        });
+    }
+}
+```
+
+## Event Testing
+
+You can manually fire events for testing:
+
+```java
+// Create and fire a custom event
+WorldCreateEvent event = new WorldCreateEvent("test_world", null, 
+    World.Environment.NORMAL, "default", true);
+
+// Fire the event
+Bukkit.getPluginManager().callEvent(event);
+
+// Check if it was cancelled
+if (event.isCancelled()) {
+    System.out.println("Event was cancelled: " + event.getCancelReason());
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Check for Cancellation" icon="exclamation-triangle">
+    ```java
+    @EventHandler
+    public void onWorldCreate(WorldCreateEvent event) {
+        // Check if already cancelled by another plugin
+        if (event.isCancelled()) {
+            return; // Don't process further
+        }
+        
+        // Your logic here
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Provide Clear Cancel Reasons" icon="message">
+    ```java
+    if (someCondition) {
+        event.setCancelled(true);
+        event.setCancelReason("Clear explanation of why it was cancelled");
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Appropriate Priority" icon="sort">
+    ```java
+    // For validation/protection - use HIGH priority
+    @EventHandler(priority = EventPriority.HIGH)
+    public void validateWorldCreation(WorldCreateEvent event) { }
+    
+    // For logging/monitoring - use MONITOR priority
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void logWorldCreation(WorldCreateEvent event) { }
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle Null Values" icon="shield">
+    ```java
+    @EventHandler
+    public void onWorldCreate(WorldCreateEvent event) {
+        Player creator = event.getCreator();
+        if (creator != null) {
+            // Safe to use creator
+            creator.sendMessage("Creating world...");
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card
+    title="WorldCreateEvent"
+    icon="plus"
+    href="/lilworlds/api/events/world-create"
+  >
+    Detailed documentation for world creation events
+  </Card>
+  <Card
+    title="WorldCreatedEvent"
+    icon="check"
+    href="/lilworlds/api/events/world-created"
+  >
+    Post-creation event documentation
+  </Card>
+  <Card
+    title="WorldDeleteEvent"
+    icon="trash"
+    href="/lilworlds/api/events/world-delete"
+  >
+    World deletion event details
+  </Card>
+  <Card
+    title="WorldTeleportEvent"
+    icon="location-arrow"
+    href="/lilworlds/api/events/world-teleport"
+  >
+    Player teleportation event documentation
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Want to see more examples?** Check out the [practical examples](/lilworlds/api/examples/basic-usage) section for real-world event handling scenarios.
+</Note>

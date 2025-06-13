@@ -37,6 +37,13 @@ icon: 'globe'
   >
     Master advanced world management techniques
   </Card>
+  <Card
+    title="🔧 Developer API"
+    icon="code"
+    href="/lilworlds/api/introduction"
+  >
+    Integrate LilWorlds into your plugins with the powerful API
+  </Card>
 </CardGroup>
 
 ## Key Features
@@ -81,13 +88,15 @@ icon: 'globe'
 ## Version Information
 
 <Info>
-**Current Version:** 1.2.0
+**Current Version:** 1.4.0 - "API Revolution"
 
 **Minecraft Compatibility:** 1.16 - 1.21.5
 
 **Server Software:** Spigot, Paper, Purpur (any Spigot-based)
 
 **Java Version:** 8+ (Java 17+ recommended)
+
+**API Version:** 1.4.0 (New!)
 </Info>
 
 ## Quick Command Overview
@@ -123,28 +132,38 @@ LilWorlds provides intuitive commands for all world management tasks:
 /worlds cleanup --orphaned              # Clean up orphaned files
 ```
 
-## What's New in v1.2
+## What's New in v1.4.0 - "API Revolution"
 
 <CardGroup cols={2}>
-  <Card title="Enhanced World Deletion" icon="trash">
-    **Configuration Purging**
+  <Card title="Complete Developer API" icon="code">
+    **Comprehensive API System**
     
-    Complete removal of world references from all config files
+    Full world management capabilities for developers with async operations
   </Card>
-  <Card title="Improved Security" icon="shield">
-    **Advanced Rate Limiting**
+  <Card title="Event System" icon="broadcast-tower">
+    **Custom Events**
     
-    Enhanced security features and operation monitoring
+    Hook into world operations with cancellable events
   </Card>
-  <Card title="Better Performance" icon="gauge-high">
-    **Memory Optimization**
+  <Card title="Teleport Command" icon="location-arrow">
+    **New Teleport Feature**
     
-    Improved memory management and async operations
+    `/w tp <world>` command with security validation and rate limiting
   </Card>
-  <Card title="Custom Generators" icon="wand-magic-sparkles">
-    **YAML-Based System**
+  <Card title="Short Command Aliases" icon="keyboard">
+    **Faster Commands**
     
-    Create custom world generators without Java coding
+    All commands now have short aliases: `/w cr`, `/w rm`, `/w tp`, etc.
+  </Card>
+  <Card title="Builder Pattern" icon="hammer">
+    **Fluent World Creation**
+    
+    Intuitive API: `api.createWorld("name").environment(NORMAL).build()`
+  </Card>
+  <Card title="Async Operations" icon="arrows-rotate">
+    **Non-blocking Operations**
+    
+    All I/O operations use CompletableFuture for better performance
   </Card>
 </CardGroup>
 

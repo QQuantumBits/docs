@@ -10,7 +10,42 @@ LilWorlds provides comprehensive world management through the `/world` (or `/w`)
 
 <Info>
 **Aliases:** You can use `/w` as a shortcut for `/world` in all commands.
+
+**New in 1.4.0:** All subcommands now have short aliases for faster usage!
 </Info>
+
+## Command Aliases (New in 1.4.0)
+
+LilWorlds now supports short aliases for all subcommands to speed up your workflow:
+
+| Full Command | Short Alias | Description |
+|--------------|-------------|-------------|
+| `/w info` | `/w i` | World information |
+| `/w create` | `/w cr` | Create world |
+| `/w clone` | `/w cl` | Clone world |
+| `/w load` | `/w ld` | Load world |
+| `/w unload` | `/w ul` | Unload world |
+| `/w remove` | `/w rm` | Remove world |
+| `/w import` | `/w imp` | Import world |
+| `/w list` | `/w ls` | List worlds |
+| `/w setspawn` | `/w ss` | Set spawn |
+| `/w setuniversalspawn` | `/w sus` | Set universal spawn |
+| `/w config` | `/w cfg` | Configuration |
+| `/w teleport` | `/w tp` | Teleport to world |
+
+<CodeGroup>
+```bash Using Full Commands
+/w info myworld
+/w create newworld
+/w teleport spawn
+```
+
+```bash Using Short Aliases
+/w i myworld
+/w cr newworld  
+/w tp spawn
+```
+</CodeGroup>
 
 ## Basic Commands
 
@@ -111,6 +146,47 @@ Total: 5 worlds
 # Plugin generators (if available)
 /w create terra_world NORMAL -g Terra:OVERWORLD
 ```
+
+## World Teleportation
+
+<Info>
+**New in 1.4.0:** The teleport command allows players to quickly travel between worlds with security validation and rate limiting.
+</Info>
+
+### Teleport Command
+
+<CodeGroup>
+```bash Basic Teleport
+# Teleport to a world's spawn location
+/world teleport <world_name>
+/w teleport spawn_world
+
+# Short alias (new in 1.4.0)
+/w tp <world_name>
+/w tp creative_world
+```
+
+```bash Examples
+# Teleport to different world types
+/w tp survival_world
+/w tp creative_world
+/w tp nether_world
+/w tp end_world
+
+# Using full command
+/world teleport minigame_world
+```
+</CodeGroup>
+
+**Features:**
+- **Security Validation**: Checks world existence and player permissions
+- **Rate Limiting**: Prevents teleport spam
+- **Safe Teleportation**: Always teleports to world spawn location
+- **Permission Support**: Requires `lilworlds.world.teleport` permission
+
+<Warning>
+The teleport command only works for players and teleports to the world's spawn location. Use `/w setspawn` to set a custom spawn point for each world.
+</Warning>
 
 ## World Loading and Unloading
 

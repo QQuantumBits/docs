@@ -47,6 +47,52 @@
               "lilworlds/commands/world-commands",
               "lilworlds/commands/admin-commands"
             ]
+          },
+          {
+            "group": "API Documentation",
+            "pages": [
+              "lilworlds/api/introduction",
+              "lilworlds/api/getting-started",
+              "lilworlds/api/quick-examples"
+            ]
+          },
+          {
+            "group": "API Classes",
+            "pages": [
+              "lilworlds/api/classes/lilworlds-api",
+              "lilworlds/api/classes/world-builder",
+              "lilworlds/api/classes/world-manager",
+              "lilworlds/api/classes/world-info",
+              "lilworlds/api/classes/world-utils"
+            ]
+          },
+          {
+            "group": "Events System",
+            "pages": [
+              "lilworlds/api/events/overview",
+              "lilworlds/api/events/world-create",
+              "lilworlds/api/events/world-created",
+              "lilworlds/api/events/world-delete",
+              "lilworlds/api/events/world-teleport"
+            ]
+          },
+          {
+            "group": "Examples & Tutorials",
+            "pages": [
+              "lilworlds/api/examples/basic-usage",
+              "lilworlds/api/examples/world-gui",
+              "lilworlds/api/examples/backup-system",
+              "lilworlds/api/examples/protection-plugin"
+            ]
+          },
+          {
+            "group": "Advanced API",
+            "pages": [
+              "lilworlds/api/advanced/async-operations",
+              "lilworlds/api/advanced/thread-safety",
+              "lilworlds/api/advanced/performance-tips",
+              "lilworlds/api/advanced/troubleshooting"
+            ]
           }
         ]
       },

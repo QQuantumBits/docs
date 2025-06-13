@@ -1,0 +1,281 @@
+---
+title: 'API Introduction'
+description: 'Comprehensive developer API for LilWorlds world management'
+icon: 'code'
+---
+
+# LilWorlds API
+
+**LilWorlds 1.4.0** introduces a comprehensive, production-ready API that transforms LilWorlds from a simple world management plugin into a powerful platform for developers.
+
+<CardGroup cols={2}>
+  <Card
+    title="🚀 Getting Started"
+    icon="rocket"
+    href="/lilworlds/api/getting-started"
+  >
+    Set up the API in your plugin and create your first world
+  </Card>
+  <Card
+    title="💡 Quick Examples"
+    icon="lightbulb"
+    href="/lilworlds/api/quick-examples"
+  >
+    See practical examples and common use cases
+  </Card>
+  <Card
+    title="📚 API Classes"
+    icon="book"
+    href="/lilworlds/api/classes/lilworlds-api"
+  >
+    Explore all available API classes and methods
+  </Card>
+  <Card
+    title="📡 Events System"
+    icon="broadcast-tower"
+    href="/lilworlds/api/events/overview"
+  >
+    Hook into world operations with custom events
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<AccordionGroup>
+  <Accordion title="🔄 Async Operations" icon="arrows-rotate">
+    - All I/O operations return `CompletableFuture`
+    - Non-blocking world loading, unloading, deletion, cloning
+    - Async world creation with callback support
+    - Thread-safe operations with proper main thread scheduling
+  </Accordion>
+  
+  <Accordion title="🏗️ Builder Pattern" icon="hammer">
+    - Fluent world creation with method chaining
+    - Intuitive API design: `api.createWorld("name").environment(NORMAL).build()`
+    - Callback support for success/failure handling
+    - Both async and sync creation methods available
+  </Accordion>
+  
+  <Accordion title="📡 Event System" icon="broadcast-tower">
+    - Custom events for all world operations (cancellable)
+    - `WorldCreateEvent`, `WorldCreatedEvent`, `WorldDeleteEvent`, `WorldTeleportEvent`
+    - Hook into world operations for custom behavior
+    - Full event cancellation support with custom reasons
+  </Accordion>
+  
+  <Accordion title="🛡️ Thread Safety" icon="shield">
+    - Proper synchronization throughout the API
+    - Main thread scheduling for Bukkit operations
+    - Safe concurrent access to world information
+    - Error handling with comprehensive callbacks
+  </Accordion>
+  
+  <Accordion title="🔧 Utility Functions" icon="wrench">
+    - World size calculation and formatting
+    - Player evacuation from worlds
+    - Safe spawn location detection
+    - World existence checking (loaded/unloaded)
+  </Accordion>
+</AccordionGroup>
+
+## API Components
+
+### Core Classes
+
+| Class | Description |
+| --- | --- |
+| **LilWorldsAPI** | Main API entry point with singleton pattern |
+| **WorldBuilder** | Fluent builder for world creation |
+| **WorldManager** | Advanced world management operations |
+| **WorldInfo** | Comprehensive world information wrapper |
+| **WorldUtils** | Utility functions for common operations |
+
+### Event System
+
+| Event | Description | Cancellable |
+| --- | --- | --- |
+| **WorldCreateEvent** | Fired before world creation | ✅ |
+| **WorldCreatedEvent** | Fired after successful world creation | ❌ |
+| **WorldDeleteEvent** | Fired before world deletion | ✅ |
+| **WorldTeleportEvent** | Fired before player teleportation | ✅ |
+
+## Quick Start Example
+
+Here's a simple example to get you started:
+
+```java
+import org.hydr4.lilworlds.api.LilWorldsAPI;
+import org.bukkit.World;
+
+public class MyPlugin extends JavaPlugin {
+    
+    private LilWorldsAPI lilWorldsAPI;
+    
+    @Override
+    public void onEnable() {
+        // Check if LilWorlds is available
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found! Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        
+        // Get API instance
+        this.lilWorldsAPI = LilWorldsAPI.getInstance();
+        getLogger().info("Connected to LilWorlds API v" + lilWorldsAPI.getVersion());
+        
+        // Create a world with the builder pattern
+        createExampleWorld();
+    }
+    
+    private void createExampleWorld() {
+        lilWorldsAPI.createWorld("example")
+            .environment(World.Environment.NORMAL)
+            .generator("superflat")
+            .structures(false)
+            .onSuccess(world -> {
+                getLogger().info("Created world: " + world.getName());
+            })
+            .onFailure(error -> {
+                getLogger().warning("Failed to create world: " + error);
+            })
+            .buildAsync();
+    }
+}
+```
+
+## Maven/Gradle Setup
+
+<CodeGroup>
+
+```xml Maven (JitPack)
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>com.github.QQuantumBits</groupId>
+        <artifactId>LilWorlds</artifactId>
+        <version>v1.4.0</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+```
+
+```gradle Gradle (JitPack)
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    compileOnly 'com.github.QQuantumBits:LilWorlds:v1.4.0'
+}
+```
+
+</CodeGroup>
+
+## Plugin Dependencies
+
+Add LilWorlds as a dependency in your `plugin.yml`:
+
+<CodeGroup>
+
+```yaml Hard Dependency
+name: MyPlugin
+version: 1.0.0
+main: com.example.MyPlugin
+depend: [LilWorlds]
+```
+
+```yaml Soft Dependency
+name: MyPlugin
+version: 1.0.0
+main: com.example.MyPlugin
+softdepend: [LilWorlds]
+```
+
+</CodeGroup>
+
+<Warning>
+Use **hard dependency** if your plugin requires LilWorlds to function. Use **soft dependency** if LilWorlds is optional.
+</Warning>
+
+## Version Compatibility
+
+<Info>
+**API Version:** 1.4.0
+
+**Minecraft:** 1.16 - 1.21.5
+
+**Java:** 8+ (Java 17+ recommended)
+
+**Server Software:** Bukkit, Spigot, Paper, Purpur
+</Info>
+
+## What's New in API 1.4.0
+
+<CardGroup cols={2}>
+  <Card title="Complete API System" icon="code">
+    **Full Developer API**
+    
+    Comprehensive world management capabilities for developers
+  </Card>
+  <Card title="Async Operations" icon="arrows-rotate">
+    **Non-blocking Operations**
+    
+    All I/O operations use CompletableFuture for better performance
+  </Card>
+  <Card title="Event System" icon="broadcast-tower">
+    **Custom Events**
+    
+    Hook into world operations with cancellable events
+  </Card>
+  <Card title="Builder Pattern" icon="hammer">
+    **Fluent API**
+    
+    Intuitive world creation with method chaining
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card
+    title="📖 API Documentation"
+    icon="book"
+    href="/lilworlds/api/classes/lilworlds-api"
+  >
+    Complete API reference with all methods and examples
+  </Card>
+  <Card
+    title="💡 Examples"
+    icon="lightbulb"
+    href="/lilworlds/api/examples/basic-usage"
+  >
+    Practical examples and real-world use cases
+  </Card>
+  <Card
+    title="🐛 Report Issues"
+    icon="bug"
+    href="https://github.com/QQuantumBits/LilWorlds/issues"
+  >
+    Found a bug in the API? Report it on GitHub
+  </Card>
+  <Card
+    title="💬 Community"
+    icon="users"
+    href="https://github.com/QQuantumBits/LilWorlds/discussions"
+  >
+    Get help from the community and share your projects
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Ready to start building?** Head over to the [Getting Started Guide](/lilworlds/api/getting-started) to set up the API in your plugin, or explore the [Quick Examples](/lilworlds/api/quick-examples) for common use cases!
+</Note>

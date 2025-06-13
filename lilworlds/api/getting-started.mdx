@@ -1,0 +1,428 @@
+---
+title: 'Getting Started'
+description: 'Set up the LilWorlds API in your plugin'
+icon: 'rocket'
+---
+
+# Getting Started with LilWorlds API
+
+This guide will help you set up the LilWorlds API in your plugin and create your first world programmatically.
+
+## Prerequisites
+
+<Info>
+**Requirements:**
+- LilWorlds 1.4.0 or higher installed on your server
+- Java 8+ (Java 17+ recommended)
+- Bukkit/Spigot/Paper development environment
+</Info>
+
+## Step 1: Add Dependency
+
+Add LilWorlds as a dependency to your project:
+
+<CodeGroup>
+
+```xml Maven
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>com.github.QQuantumBits</groupId>
+        <artifactId>LilWorlds</artifactId>
+        <version>v1.4.0</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+```
+
+```gradle Gradle
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    compileOnly 'com.github.QQuantumBits:LilWorlds:v1.4.0'
+}
+```
+
+</CodeGroup>
+
+## Step 2: Configure plugin.yml
+
+Add LilWorlds as a dependency in your `plugin.yml`:
+
+<CodeGroup>
+
+```yaml Hard Dependency (Recommended)
+name: MyWorldPlugin
+version: 1.0.0
+main: com.example.myworldplugin.MyWorldPlugin
+api-version: 1.16
+depend: [LilWorlds]
+
+description: My awesome world management plugin
+author: YourName
+```
+
+```yaml Soft Dependency (Optional)
+name: MyWorldPlugin
+version: 1.0.0
+main: com.example.myworldplugin.MyWorldPlugin
+api-version: 1.16
+softdepend: [LilWorlds]
+
+description: My awesome world management plugin
+author: YourName
+```
+
+</CodeGroup>
+
+<Warning>
+Use **hard dependency** (`depend`) if your plugin requires LilWorlds to function. Use **soft dependency** (`softdepend`) if LilWorlds is optional.
+</Warning>
+
+## Step 3: Initialize the API
+
+Create your main plugin class and initialize the LilWorlds API:
+
+```java
+package com.example.myworldplugin;
+
+import org.bukkit.plugin.JavaPlugin;
+import org.hydr4.lilworlds.api.LilWorldsAPI;
+
+public class MyWorldPlugin extends JavaPlugin {
+    
+    private LilWorldsAPI lilWorldsAPI;
+    
+    @Override
+    public void onEnable() {
+        // Check if LilWorlds is available
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found! Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        
+        // Get API instance
+        this.lilWorldsAPI = LilWorldsAPI.getInstance();
+        
+        // Verify API version
+        getLogger().info("Connected to LilWorlds API v" + lilWorldsAPI.getVersion());
+        
+        // Initialize your plugin features
+        initializeFeatures();
+    }
+    
+    @Override
+    public void onDisable() {
+        getLogger().info("MyWorldPlugin disabled!");
+    }
+    
+    private void initializeFeatures() {
+        // Register commands, events, etc.
+        getLogger().info("Plugin features initialized!");
+    }
+    
+    public LilWorldsAPI getLilWorldsAPI() {
+        return lilWorldsAPI;
+    }
+}
+```
+
+## Step 4: Create Your First World
+
+Now let's create a world using the API:
+
+```java
+import org.bukkit.World;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+
+public class CreateWorldCommand implements CommandExecutor {
+    
+    private final MyWorldPlugin plugin;
+    
+    public CreateWorldCommand(MyWorldPlugin plugin) {
+        this.plugin = plugin;
+    }
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("This command can only be used by players!");
+            return true;
+        }
+        
+        if (args.length < 1) {
+            sender.sendMessage("Usage: /createworld <name>");
+            return true;
+        }
+        
+        Player player = (Player) sender;
+        String worldName = args[0];
+        
+        // Create world using the API
+        plugin.getLilWorldsAPI().createWorld(worldName)
+            .environment(World.Environment.NORMAL)
+            .generator("default")
+            .structures(true)
+            .onSuccess(world -> {
+                player.sendMessage("§aWorld '" + worldName + "' created successfully!");
+                // Teleport player to the new world
+                player.teleport(world.getSpawnLocation());
+            })
+            .onFailure(error -> {
+                player.sendMessage("§cFailed to create world: " + error);
+            })
+            .buildAsync();
+        
+        player.sendMessage("§eCreating world '" + worldName + "'...");
+        return true;
+    }
+}
+```
+
+## Step 5: Register Commands and Events
+
+Update your main class to register the command:
+
+```java
+private void initializeFeatures() {
+    // Register commands
+    getCommand("createworld").setExecutor(new CreateWorldCommand(this));
+    
+    // Register event listeners (if any)
+    getServer().getPluginManager().registerEvents(new WorldEventListener(this), this);
+    
+    getLogger().info("Plugin features initialized!");
+}
+```
+
+Add the command to your `plugin.yml`:
+
+```yaml
+commands:
+  createworld:
+    description: Create a new world
+    usage: /createworld <name>
+    permission: myworldplugin.create
+```
+
+## Step 6: Handle Events (Optional)
+
+You can listen to LilWorlds events to add custom behavior:
+
+```java
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.hydr4.lilworlds.api.events.WorldCreateEvent;
+import org.hydr4.lilworlds.api.events.WorldCreatedEvent;
+
+public class WorldEventListener implements Listener {
+    
+    private final MyWorldPlugin plugin;
+    
+    public WorldEventListener(MyWorldPlugin plugin) {
+        this.plugin = plugin;
+    }
+    
+    @EventHandler
+    public void onWorldCreate(WorldCreateEvent event) {
+        // This event is fired BEFORE world creation and can be cancelled
+        String worldName = event.getWorldName();
+        
+        // Example: Prevent creation of worlds with certain names
+        if (worldName.startsWith("temp_")) {
+            event.setCancelled(true);
+            event.setCancelReason("Temporary worlds are not allowed");
+            return;
+        }
+        
+        plugin.getLogger().info("World '" + worldName + "' is about to be created");
+    }
+    
+    @EventHandler
+    public void onWorldCreated(WorldCreatedEvent event) {
+        // This event is fired AFTER successful world creation
+        String worldName = event.getWorld().getName();
+        
+        plugin.getLogger().info("World '" + worldName + "' has been created successfully!");
+        
+        // Example: Set up permissions, regions, etc. for the new world
+        setupNewWorld(event.getWorld());
+    }
+    
+    private void setupNewWorld(org.bukkit.World world) {
+        // Add your custom setup logic here
+        // For example: set world rules, create spawn protection, etc.
+        world.setGameRuleValue("keepInventory", "true");
+        world.setGameRuleValue("mobGriefing", "false");
+    }
+}
+```
+
+## Complete Example Plugin
+
+Here's a complete example plugin that demonstrates basic API usage:
+
+<Accordion title="Complete Plugin Example">
+
+```java
+// Main plugin class
+package com.example.myworldplugin;
+
+import org.bukkit.plugin.JavaPlugin;
+import org.hydr4.lilworlds.api.LilWorldsAPI;
+
+public class MyWorldPlugin extends JavaPlugin {
+    
+    private LilWorldsAPI lilWorldsAPI;
+    
+    @Override
+    public void onEnable() {
+        if (!getServer().getPluginManager().isPluginEnabled("LilWorlds")) {
+            getLogger().severe("LilWorlds not found! Disabling plugin.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        
+        this.lilWorldsAPI = LilWorldsAPI.getInstance();
+        getLogger().info("Connected to LilWorlds API v" + lilWorldsAPI.getVersion());
+        
+        initializeFeatures();
+    }
+    
+    private void initializeFeatures() {
+        getCommand("createworld").setExecutor(new CreateWorldCommand(this));
+        getCommand("deleteworld").setExecutor(new DeleteWorldCommand(this));
+        getCommand("listworlds").setExecutor(new ListWorldsCommand(this));
+        
+        getServer().getPluginManager().registerEvents(new WorldEventListener(this), this);
+        
+        getLogger().info("Plugin features initialized!");
+    }
+    
+    public LilWorldsAPI getLilWorldsAPI() {
+        return lilWorldsAPI;
+    }
+}
+
+// Command to list worlds
+package com.example.myworldplugin;
+
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+
+public class ListWorldsCommand implements CommandExecutor {
+    
+    private final MyWorldPlugin plugin;
+    
+    public ListWorldsCommand(MyWorldPlugin plugin) {
+        this.plugin = plugin;
+    }
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        sender.sendMessage("§6=== World List ===");
+        
+        // Get all worlds using the API
+        plugin.getLilWorldsAPI().getWorldManager().getAllWorlds().forEach(worldName -> {
+            boolean isLoaded = plugin.getLilWorldsAPI().getWorldManager().isWorldLoaded(worldName);
+            String status = isLoaded ? "§aLoaded" : "§cUnloaded";
+            sender.sendMessage("§f- " + worldName + " " + status);
+        });
+        
+        return true;
+    }
+}
+```
+
+</Accordion>
+
+## Testing Your Plugin
+
+1. **Build your plugin** using Maven or Gradle
+2. **Place the JAR** in your server's `plugins` folder
+3. **Ensure LilWorlds 1.4.0+** is also installed
+4. **Start your server** and check the console for any errors
+5. **Test the commands** in-game
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="ClassNotFoundException" icon="exclamation-triangle">
+    **Problem:** `ClassNotFoundException` when accessing LilWorlds API classes.
+    
+    **Solution:** 
+    - Ensure LilWorlds 1.4.0+ is installed on your server
+    - Check that your dependency scope is `provided` (not `compile`)
+    - Verify that LilWorlds loads before your plugin
+  </Accordion>
+  
+  <Accordion title="API Instance is null" icon="exclamation-triangle">
+    **Problem:** `LilWorldsAPI.getInstance()` returns null.
+    
+    **Solution:**
+    - Make sure LilWorlds is enabled before your plugin
+    - Use `depend: [LilWorlds]` in your plugin.yml
+    - Check server logs for LilWorlds loading errors
+  </Accordion>
+  
+  <Accordion title="Plugin doesn't load" icon="exclamation-triangle">
+    **Problem:** Your plugin fails to load with dependency errors.
+    
+    **Solution:**
+    - Verify LilWorlds is in the plugins folder
+    - Check that you're using the correct LilWorlds version
+    - Review your plugin.yml dependency configuration
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="📚 API Classes"
+    icon="book"
+    href="/lilworlds/api/classes/lilworlds-api"
+  >
+    Explore all available API classes and methods
+  </Card>
+  <Card
+    title="💡 Quick Examples"
+    icon="lightbulb"
+    href="/lilworlds/api/quick-examples"
+  >
+    See more practical examples and use cases
+  </Card>
+  <Card
+    title="📡 Events System"
+    icon="broadcast-tower"
+    href="/lilworlds/api/events/overview"
+  >
+    Learn about the event system and how to use it
+  </Card>
+  <Card
+    title="🔧 Advanced Features"
+    icon="wrench"
+    href="/lilworlds/api/advanced/async-operations"
+  >
+    Dive into advanced API features and best practices
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Need help?** Join our [Discord community](https://discord.gg/phVzDFAZ3v) or check out the [troubleshooting guide](/lilworlds/api/advanced/troubleshooting) for common issues and solutions.
+</Note>
