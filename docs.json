@@ -1,0 +1,105 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "QuantumBits Documentation",
+  "colors": {
+    "primary": "#3B82F6",
+    "light": "#60A5FA",
+    "dark": "#1E40AF"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Overview",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "index"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "LilWorlds",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "lilworlds/introduction",
+              "lilworlds/installation",
+              "lilworlds/quick-start",
+              "lilworlds/configuration"
+            ]
+          },
+          {
+            "group": "World Management",
+            "pages": [
+              "lilworlds/world-management",
+              "lilworlds/world-deletion",
+              "lilworlds/custom-generators"
+            ]
+          },
+          {
+            "group": "Commands",
+            "pages": [
+              "lilworlds/commands/world-commands",
+              "lilworlds/commands/admin-commands"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "LilChunks",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "lilchunks/introduction",
+              "lilchunks/installation",
+              "lilchunks/quick-start",
+              "lilchunks/configuration"
+            ]
+          },
+          {
+            "group": "Usage",
+            "pages": [
+              "lilchunks/commands",
+              "lilchunks/permissions",
+              "lilchunks/performance"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "lilchunks/troubleshooting"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/CarmineArcangelo/LilWorlds"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Download",
+      "href": "https://github.com/CarmineArcangelo/LilWorlds/releases"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Hydr46605"
+    }
+  }
+}
